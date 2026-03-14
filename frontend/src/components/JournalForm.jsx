@@ -1,7 +1,5 @@
-import { useState } from 'react';
-import axios from 'axios';
-
-const USER_ID = 'user-123';
+import { useRef, useState } from 'react';
+import api from '../api/client.js';
 
 const AMBIENCES = [
   { value: 'forest', label: '🌲 Forest' },
@@ -16,32 +14,44 @@ export default function JournalForm({ onEntryAdded }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const lastAnalyzedText = useRef('');
 
   const handleAnalyze = async () => {
-    if (!text.trim()) return setError('Please write something first.');
+    const trimmed = text.trim();
+    if (!trimmed) return setError('Please write something first.');
+    if (lastAnalyzedText.current === trimmed && analysis) return;
+
     setError('');
     setAnalyzing(true);
     try {
-      const { data } = await axios.post('/api/journal/analyze', { text });
-      setAnalysis(data);
-    } catch {
-      setError('Analysis failed. Please try again.');
+      const { data } = await api.post('/journal/analyze', { text: trimmed });
+      if (data.message) {
+        setError('Analysis queued, check back after save.');
+      } else {
+        setAnalysis(data);
+        lastAnalyzedText.current = trimmed;
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Analysis failed. Please try again.');
     } finally {
       setAnalyzing(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!text.trim()) return setError('Please write something first.');
+    const trimmed = text.trim();
+    if (!trimmed) return setError('Please write something first.');
+
     setError('');
     setSaving(true);
     try {
-      await axios.post('/api/journal', { userId: USER_ID, ambience, text });
+      await api.post('/journal', { ambience, text: trimmed });
       setText('');
       setAnalysis(null);
+      lastAnalyzedText.current = '';
       onEntryAdded();
-    } catch {
-      setError('Failed to save entry. Please try again.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save entry. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -53,11 +63,7 @@ export default function JournalForm({ onEntryAdded }) {
 
       <div className="ambience-row">
         {AMBIENCES.map((a) => (
-          <button
-            key={a.value}
-            className={`ambience-btn ${ambience === a.value ? 'active' : ''}`}
-            onClick={() => setAmbience(a.value)}
-          >
+          <button key={a.value} className={`ambience-btn ${ambience === a.value ? 'active' : ''}`} onClick={() => setAmbience(a.value)}>
             {a.label}
           </button>
         ))}
@@ -66,12 +72,15 @@ export default function JournalForm({ onEntryAdded }) {
       <textarea
         placeholder="What thoughts emerge in this space?..."
         value={text}
-        onChange={(e) => { setText(e.target.value); setAnalysis(null); }}
+        onChange={(e) => {
+          setText(e.target.value);
+          setAnalysis(null);
+        }}
       />
 
       {analysis && (
         <div className="analysis-box">
-          <div className="emotion">✨ {analysis.emotion}</div>
+          <div className="emotion">✨ {analysis.emotion} {analysis.cached ? '(cached)' : ''}</div>
           <div className="summary">{analysis.summary}</div>
           <div className="tags">
             {analysis.keywords?.map((kw) => (
@@ -84,18 +93,10 @@ export default function JournalForm({ onEntryAdded }) {
       {error && <div className="error">{error}</div>}
 
       <div className="form-actions">
-        <button
-          className="btn btn-secondary"
-          onClick={handleAnalyze}
-          disabled={analyzing || !text.trim()}
-        >
+        <button className="btn btn-secondary" onClick={handleAnalyze} disabled={analyzing || !text.trim()}>
           {analyzing ? 'Analyzing...' : '🔍 Analyze with AI'}
         </button>
-        <button
-          className="btn btn-primary"
-          onClick={handleSubmit}
-          disabled={saving || !text.trim()}
-        >
+        <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || !text.trim()}>
           {saving ? 'Saving...' : '💾 Save Entry'}
         </button>
       </div>

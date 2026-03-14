@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const USER_ID = 'user-123';
+import { useEffect, useState } from 'react';
+import api from '../api/client.js';
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -12,15 +10,19 @@ function formatDate(dateStr) {
 export default function EntriesList({ refreshTrigger }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    axios.get(`/api/journal/${USER_ID}`)
+    setLoading(true);
+    setError('');
+    api.get('/journal')
       .then(({ data }) => setEntries(data))
-      .catch(() => {})
+      .catch((err) => setError(err.response?.data?.error || 'Unable to load entries'))
       .finally(() => setLoading(false));
   }, [refreshTrigger]);
 
   if (loading) return <div className="spinner">Loading entries...</div>;
+  if (error) return <div className="error">{error}</div>;
 
   return (
     <div>
@@ -38,6 +40,7 @@ export default function EntriesList({ refreshTrigger }) {
               <span className="date">{formatDate(entry.createdAt)}</span>
             </div>
             <div className="entry-text">{entry.text}</div>
+            {entry.analysisStatus === 'pending' && <div className="entry-summary">AI analysis pending...</div>}
             {entry.summary && <div className="entry-summary">"{entry.summary}"</div>}
             {entry.keywords?.length > 0 && (
               <div className="tags">
