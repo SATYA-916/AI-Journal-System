@@ -1,26 +1,16 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import journalRoutes from './routes/journalRoutes.js';
+import { createApp } from './app.js';
+import { connectDatabase } from './config/db.js';
+import { env } from './config/env.js';
+import { startAnalysisWorker } from './workers/analysisWorker.js';
 
-dotenv.config();
+async function bootstrap() {
+  await connectDatabase();
+  startAnalysisWorker();
+  const app = createApp();
+  app.listen(env.port, () => console.log(`Server running on port ${env.port}`));
+}
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-app.use(cors());
-app.use(express.json());
-
-app.use('/api', journalRoutes);
-
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-  });
+bootstrap().catch((err) => {
+  console.error('Failed to bootstrap application:', err);
+  process.exit(1);
+});
