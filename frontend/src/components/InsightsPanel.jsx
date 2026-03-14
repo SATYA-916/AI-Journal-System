@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const USER_ID = 'user-123';
+import { useEffect, useState } from 'react';
+import api from '../api/client.js';
 
 export default function InsightsPanel({ refreshTrigger }) {
   const [insights, setInsights] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    axios.get(`/api/journal/insights/${USER_ID}`)
+    setError('');
+    api.get('/journal/insights')
       .then(({ data }) => setInsights(data))
-      .catch(() => {});
+      .catch((err) => setError(err.response?.data?.error || 'Failed to load insights'));
   }, [refreshTrigger]);
 
+  if (error) return <div className="error">{error}</div>;
   if (!insights) return null;
 
   return (

@@ -1,24 +1,21 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
 import {
   createJournalEntry,
   getJournalEntries,
   analyzeEntry,
   getInsights,
 } from '../controllers/journalController.js';
+import { analyzeLimiter } from '../middleware/rateLimiters.js';
+import { requireAuth } from '../middleware/authMiddleware.js';
+import { validateRequest } from '../middleware/validateRequest.js';
+import { analyzeSchema, createEntrySchema } from '../validators/journalValidators.js';
 
 const router = Router();
 
-const analyzeLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { error: 'Too many analyze requests. Please try again later.' },
-});
-
-// Note: specific routes must come before parameterized ones
-router.post('/journal/analyze', analyzeLimiter, analyzeEntry);
-router.get('/journal/insights/:userId', getInsights);
-router.post('/journal', createJournalEntry);
-router.get('/journal/:userId', getJournalEntries);
+router.use(requireAuth);
+router.post('/journal/analyze', analyzeLimiter, validateRequest(analyzeSchema), analyzeEntry);
+router.get('/journal/insights', getInsights);
+router.post('/journal', validateRequest(createEntrySchema), createJournalEntry);
+router.get('/journal', getJournalEntries);
 
 export default router;
